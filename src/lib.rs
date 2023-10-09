@@ -1,31 +1,35 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 
-use syn::{parse_macro_input, DeriveInput, Data};
+use syn::{parse_macro_input, DeriveInput, Data, Fields };
 use quote::quote;
 
 #[proc_macro_derive(Count)]
 pub fn count(input: TokenStream) -> TokenStream {
     let macro_input = parse_macro_input!(input as DeriveInput);
 
-    let struct_name = &macro_input.ident;
+    let struct_or_enum_name = &macro_input.ident;
 
-    let field_count = match &macro_input.data {
-        Data::Struct(data) => data.fields.iter().count(),
-        _ => panic!("Count derive macro only works on structs"),
+    let count = match &macro_input.data {
+        Data::Struct(data_struct) => match &data_struct.fields {
+            Fields::Named(fields_named) => fields_named.named.len(),
+            Fields::Unnamed(fields_unnamed) => fields_unnamed.unnamed.len(),
+            Fields::Unit => 0,
+        },
+        Data::Enum(data_enum) => data_enum.variants.len(),
+        _ => panic!("Count derive macro only works on structs and enums"),
     };
 
     let expanded = quote! {
-        impl #struct_name {
+        impl #struct_or_enum_name {
             pub fn field_count() -> usize {
-                #field_count
+                #count
             }
         }
     };
 
     expanded.into()
 }
-
 
 #[cfg(test)]
 mod tests {
